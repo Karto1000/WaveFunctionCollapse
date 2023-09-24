@@ -1,3 +1,5 @@
+import functools
+import math
 import random
 from enum import Enum
 from typing import Optional
@@ -8,24 +10,24 @@ pygame.init()
 
 SW, SH = 1000, 1000
 SCREEN = pygame.display.set_mode((SW, SH))
-CELL_SIZE = 10, 10
+CELL_SIZE = 30, 30
 
 
 class CellType(Enum):
-    UP = [True, False, True, False]
-    RIGHT = [False, True, False, True]
+    UP = [True, False, True, False], random.randrange(0, 10)
+    RIGHT = [False, True, False, True], random.randrange(0, 10)
 
-    UP_RIGHT = [False, True, True, False]
-    UP_LEFT = [False, False, True, True]
-    DOWN_RIGHT = [True, True, False, False]
-    DOWN_LEFT = [True, False, False, True]
+    UP_RIGHT = [False, True, True, False], random.randrange(0, 10)
+    UP_LEFT = [False, False, True, True], random.randrange(0, 10)
+    DOWN_RIGHT = [True, True, False, False], random.randrange(0, 10)
+    DOWN_LEFT = [True, False, False, True], random.randrange(0, 10)
 
-    FORK_UP_RIGHT = [True, True, True, False]
-    FORK_UP_LEFT = [True, False, True, True]
-    FORK_RIGHT_UP = [True, True, False, True]
-    FORK_RIGHT_DOWN = [False, True, True, True]
+    FORK_UP_RIGHT = [True, True, True, False], random.randrange(0, 10)
+    FORK_UP_LEFT = [True, False, True, True], random.randrange(0, 10)
+    FORK_RIGHT_UP = [True, True, False, True], random.randrange(0, 10)
+    FORK_RIGHT_DOWN = [False, True, True, True], random.randrange(0, 10)
 
-    CROSS = [True, True, True, True]
+    CROSS = [True, True, True, True], random.randrange(0, 10)
 
 
 class CellSide(Enum):
@@ -57,7 +59,7 @@ class Cell:
         new_options = self.available_options.copy()
 
         for option in self.available_options:
-            o_side = option.value[side.get_opposite().value]
+            o_side = option.value[0][side.get_opposite().value]
 
             if not o_side and has_connection:
                 new_options.remove(option)
@@ -67,7 +69,11 @@ class Cell:
         self.available_options = new_options
 
     def get_entropy(self) -> int:
-        return len(self.available_options)
+        options = len(self.available_options)
+        weight_sum = functools.reduce(lambda a, b: a + b,
+                                      map(lambda o: o.value[1], self.available_options))
+        options -= weight_sum / 10
+        return options
 
     def draw(self):
         if not self.type:
@@ -89,7 +95,7 @@ class Cell:
         # )
 
         # UP
-        if self.type.value[0]:
+        if self.type.value[0][0]:
             pygame.draw.rect(
                 SCREEN,
                 (0, 0, 0),
@@ -98,7 +104,7 @@ class Cell:
             )
 
         # Right
-        if self.type.value[1]:
+        if self.type.value[0][1]:
             pygame.draw.rect(
                 SCREEN,
                 (0, 0, 0),
@@ -106,7 +112,7 @@ class Cell:
                  CELL_SIZE[0] / 2 + rect_width // 2, rect_height)
             )
 
-        if self.type.value[2]:
+        if self.type.value[0][2]:
             pygame.draw.rect(
                 SCREEN,
                 (0, 0, 0),
@@ -114,7 +120,7 @@ class Cell:
                  CELL_SIZE[1] // 2 + rect_height // 2)
             )
 
-        if self.type.value[3]:
+        if self.type.value[0][3]:
             pygame.draw.rect(
                 SCREEN,
                 (0, 0, 0),
@@ -123,7 +129,16 @@ class Cell:
             )
 
     def collapse(self):
-        cell_type = random.choice(self.available_options)
+        biggest_weights = sorted(self.available_options, key=lambda a: a.value[1], reverse=True)
+        max_val = biggest_weights[0].value[1] + 1
+
+        for weight in biggest_weights:
+            if random.randrange(0, max_val) < weight.value[1]:
+                cell_type = weight
+                break
+        else:
+            cell_type = random.choice(biggest_weights)
+
         self.type = cell_type
         self.is_collapsed = True
         return self.type
@@ -186,16 +201,16 @@ class CellManager:
         left = self.get_cell_at(smallest.x - 1, smallest.y)
 
         if up:
-            up.remove_cell_side(CellSide.UP, chosen_type.value[0])
+            up.remove_cell_side(CellSide.UP, chosen_type.value[0][0])
 
         if right:
-            right.remove_cell_side(CellSide.RIGHT, chosen_type.value[1])
+            right.remove_cell_side(CellSide.RIGHT, chosen_type.value[0][1])
 
         if down:
-            down.remove_cell_side(CellSide.DOWN, chosen_type.value[2])
+            down.remove_cell_side(CellSide.DOWN, chosen_type.value[0][2])
 
         if left:
-            left.remove_cell_side(CellSide.LEFT, chosen_type.value[3])
+            left.remove_cell_side(CellSide.LEFT, chosen_type.value[0][3])
 
 
 manager = CellManager()
